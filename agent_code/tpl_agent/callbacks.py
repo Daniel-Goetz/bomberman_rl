@@ -77,3 +77,5 @@ def state_to_features(game_state: dict) -> np.array:
     stacked_channels = np.stack(channels)
     # and return them as a vector
     return stacked_channels.reshape(-1)
+
+# Hallo git test
