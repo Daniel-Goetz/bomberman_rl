@@ -26,6 +26,7 @@ def setup(self):
         self.logger.info("Setting up model from scratch.")
         weights = np.random.rand(len(ACTIONS))
         weights[5] = 0
+        weights[4] = 0
         self.model = weights / weights.sum()
     else:
         self.logger.info("Loading model from saved state.")
@@ -47,7 +48,7 @@ def act(self, game_state: dict) -> str:
     if self.train and random.random() < random_prob:
         self.logger.debug("Choosing action purely at random.")
         # 80%: walk in any direction. 10% wait. 10% bomb.
-        return np.random.choice(ACTIONS, p=[.2, .2, .2, .2, .2, .0])
+        return np.random.choice(ACTIONS, p=[.25, .25, .25, .25, .0, .0])
 
     self.logger.debug("Querying model for action.")
     return np.random.choice(ACTIONS, p=self.model)

@@ -17,6 +17,7 @@ RECORD_ENEMY_TRANSITIONS = 1.0  # record enemy transitions with probability ...
 # Events
 PLACEHOLDER_EVENT = "PLACEHOLDER"
 COIN_DISTANCE_INCREASE = "COIN_DISTANCE_INCREASE"
+SAME_POS = "SAME_POSITION"
 
 
 def setup_training(self):
@@ -41,6 +42,15 @@ def coin_dist(game_state):
         if(dist < min_dist):
             min_dist = dist
     return min_dist
+
+def same_pos(new_game_state, old_game_state):
+    x,y = new_game_state["self"][3]
+    a,b = old_game_state["self"][3]
+    if x == a and y == b:
+        boolean = True
+    else:
+        boolean = False
+    return boolean
 
 
 def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_state: dict, events: List[str]):
@@ -68,6 +78,11 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
 
     if coin_dist(old_game_state) < coin_dist(new_game_state):
         events.append(COIN_DISTANCE_INCREASE)
+    
+    """
+    if same_pos(new_game_state, old_game_state) == True:
+        events.append(SAME_POS)
+    """
 
     # state_to_features is defined in callbacks.py
     self.transitions.append(Transition(state_to_features(old_game_state), self_action, state_to_features(new_game_state), reward_from_events(self, events)))
@@ -105,7 +120,8 @@ def reward_from_events(self, events: List[str]) -> int:
         e.COIN_COLLECTED: 1,
         e.KILLED_OPPONENT: 5,
         PLACEHOLDER_EVENT: -.1,  # idea: the custom event is bad
-        COIN_DISTANCE_INCREASE: -.2
+        COIN_DISTANCE_INCREASE: -.2,
+        SAME_POS: -.2
     }
     reward_sum = 0
     for event in events:
