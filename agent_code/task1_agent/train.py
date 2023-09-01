@@ -16,6 +16,8 @@ RECORD_ENEMY_TRANSITIONS = 1.0  # record enemy transitions with probability ...
 
 # Events
 PLACEHOLDER_EVENT = "PLACEHOLDER"
+COIN_DISTANCE_INCREASE = "COIN_DISTANCE_INCREASE"
+
 
 def setup_training(self):
     """
@@ -28,6 +30,17 @@ def setup_training(self):
     # Example: Setup an array that will note transition tuples
     # (s, a, s', r)
     self.transitions = deque(maxlen=TRANSITION_HISTORY_SIZE)
+
+def coin_dist(game_state):
+    min_dist = 10000
+    coins = game_state["coins"]
+    robo = game_state["self"]
+    x,y = robo[3]
+    for a,b in coins:
+        dist = abs(a-x) + abs(b-y)
+        if(dist < min_dist):
+            min_dist = dist
+    return min_dist
 
 
 def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_state: dict, events: List[str]):
@@ -52,6 +65,9 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     # Idea: Add your own events to hand out rewards
     if ...:
         events.append(PLACEHOLDER_EVENT)
+
+    if coin_dist(old_game_state) < coin_dist(new_game_state):
+        events.append(COIN_DISTANCE_INCREASE)
 
     # state_to_features is defined in callbacks.py
     self.transitions.append(Transition(state_to_features(old_game_state), self_action, state_to_features(new_game_state), reward_from_events(self, events)))
@@ -88,7 +104,8 @@ def reward_from_events(self, events: List[str]) -> int:
     game_rewards = {
         e.COIN_COLLECTED: 1,
         e.KILLED_OPPONENT: 5,
-        PLACEHOLDER_EVENT: -.1  # idea: the custom event is bad
+        PLACEHOLDER_EVENT: -.1,  # idea: the custom event is bad
+        COIN_DISTANCE_INCREASE: -.2
     }
     reward_sum = 0
     for event in events:
