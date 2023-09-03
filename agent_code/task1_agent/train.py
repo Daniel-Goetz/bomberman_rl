@@ -6,6 +6,8 @@ from typing import List
 import events as e
 from .callbacks import state_to_features
 
+import numpy as np
+
 # This is only an example!
 Transition = namedtuple('Transition',
                         ('state', 'action', 'next_state', 'reward'))
@@ -15,9 +17,9 @@ TRANSITION_HISTORY_SIZE = 3  # keep only ... last transitions
 RECORD_ENEMY_TRANSITIONS = 1.0  # record enemy transitions with probability ...
 
 # Events
-PLACEHOLDER_EVENT = "PLACEHOLDER"
-COIN_DISTANCE_INCREASE = "COIN_DISTANCE_INCREASE"
-SAME_POS = "SAME_POSITION"
+SAME_POS_EVENT = "SAME_POSITION"
+WALL_BUMP_EVENT = "WALL_BUMP"
+COIN_DIST_DECREASE_EVENT = "COIN_DIST_DECREASE"
 
 
 def setup_training(self):
@@ -33,24 +35,38 @@ def setup_training(self):
     self.transitions = deque(maxlen=TRANSITION_HISTORY_SIZE)
 
 def coin_dist(game_state):
-    min_dist = 10000
-    coins = game_state["coins"]
-    robo = game_state["self"]
-    x,y = robo[3]
-    for a,b in coins:
-        dist = abs(a-x) + abs(b-y)
-        if(dist < min_dist):
-            min_dist = dist
-    return min_dist
+    targets = game_state["coins"]
+    start = game_state["self"][3]
 
-def same_pos(new_game_state, old_game_state):
-    x,y = new_game_state["self"][3]
-    a,b = old_game_state["self"][3]
-    if x == a and y == b:
-        boolean = True
+    # calculates the distance between the agent and the nearest coin
+    best_dist = np.sum(np.abs(np.subtract(targets, start)), axis=1).min()
+    return best_dist
+
+def same_pos(transitions):
+    if(len(transitions) != 3):
+        return False
+    state0, action, new_state, reward = transitions.pop()
+    state1, action, new_state, reward = transitions.pop()
+    state2, action, new_state, reward = transitions.pop()
+
+    x,y = state0
+    a,b = state1
+    c,d = state2
+
+    if((x == a and y == b) or (a == c and b == d)):
+        return True
     else:
-        boolean = False
-    return boolean
+        return False
+    
+def wall_bump(old_game_state, new_game_state):
+    old_pos = old_game_state["self"][3]
+    new_pos = new_game_state["self"][3]
+
+    if(new_pos == old_pos):
+        return True
+    else:
+        return False
+
 
 
 def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_state: dict, events: List[str]):
@@ -73,16 +89,14 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     self.logger.debug(f'Encountered game event(s) {", ".join(map(repr, events))} in step {new_game_state["step"]}')
 
     # Idea: Add your own events to hand out rewards
-    if ...:
-        events.append(PLACEHOLDER_EVENT)
+    if same_pos(self.transitions):
+        events.append(SAME_POS_EVENT)
 
-    if coin_dist(old_game_state) < coin_dist(new_game_state):
-        events.append(COIN_DISTANCE_INCREASE)
-    
-    """
-    if same_pos(new_game_state, old_game_state) == True:
-        events.append(SAME_POS)
-    """
+    if wall_bump(old_game_state, new_game_state):
+        events.append(WALL_BUMP_EVENT)   
+
+    if coin_dist(new_game_state) < coin_dist(old_game_state):
+        events.append(COIN_DIST_DECREASE_EVENT)
 
     # state_to_features is defined in callbacks.py
     self.transitions.append(Transition(state_to_features(old_game_state), self_action, state_to_features(new_game_state), reward_from_events(self, events)))
@@ -119,9 +133,9 @@ def reward_from_events(self, events: List[str]) -> int:
     game_rewards = {
         e.COIN_COLLECTED: 1,
         e.KILLED_OPPONENT: 5,
-        PLACEHOLDER_EVENT: -.1,  # idea: the custom event is bad
-        COIN_DISTANCE_INCREASE: -.2,
-        SAME_POS: -.2
+        WALL_BUMP_EVENT: -.8,
+        SAME_POS_EVENT: -.5,
+        COIN_DIST_DECREASE_EVENT: .1
     }
     reward_sum = 0
     for event in events:
