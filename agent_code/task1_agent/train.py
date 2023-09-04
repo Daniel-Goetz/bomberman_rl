@@ -95,11 +95,29 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     if wall_bump(old_game_state, new_game_state):
         events.append(WALL_BUMP_EVENT)   
 
-    if coin_dist(new_game_state) < coin_dist(old_game_state):
+    if (coin_dist(new_game_state) < coin_dist(old_game_state)) and (not same_pos(self.transitions)):
         events.append(COIN_DIST_DECREASE_EVENT)
 
     # state_to_features is defined in callbacks.py
     self.transitions.append(Transition(state_to_features(old_game_state), self_action, state_to_features(new_game_state), reward_from_events(self, events)))
+
+    # Q-learning update
+    alpha = 0.9     # learning rate
+    gamma = 0.95    # discount factor
+    weights = self.model
+    round = new_game_state["round"]
+
+    ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
+    for idx, a in ACTIONS:
+        if a == self_action:
+            action = idx
+    
+    a,b,c,reward_old = self.transitions.pop()
+    a,b,c,reward_new = self.transitions.pop()
+    reward = reward_new - reward_old
+
+    # Q-update rule
+    weights[round, action] = (1- alpha) * weights[round, action] + alpha *(reward + gamma * weights[round +1,].max())
 
 
 def end_of_round(self, last_game_state: dict, last_action: str, events: List[str]):

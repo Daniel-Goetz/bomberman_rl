@@ -24,10 +24,16 @@ def setup(self):
     """
     if self.train or not os.path.isfile("my-saved-model.pt"):
         self.logger.info("Setting up model from scratch.")
-        weights = np.random.rand(len(ACTIONS))
-        weights[5] = 0
-        weights[4] = 0
-        self.model = weights / weights.sum()
+        #weights = np.random.rand(len(ACTIONS))
+        #weights[4] = 0
+        #weights[5] = 0
+        #self.model = weights / weights.sum()
+
+        # Q-Matrix with possbile 400 states times 6 actions initializied with zeros
+        weights = np.zeros((400, 6))
+        # random initialization
+        # weights = np.random.random((400, 6))
+        self.model = weights
     else:
         self.logger.info("Loading model from saved state.")
         with open("my-saved-model.pt", "rb") as file:
@@ -51,7 +57,7 @@ def act(self, game_state: dict) -> str:
         return np.random.choice(ACTIONS, p=[.25, .25, .25, .25, .0, .0])
 
     self.logger.debug("Querying model for action.")
-    return np.random.choice(ACTIONS, p=self.model)
+    return np.random.choice(ACTIONS, p=self.model) # needs to be reworked
 
 
 def state_to_features(game_state: dict) -> np.array:
