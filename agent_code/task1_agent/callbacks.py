@@ -30,14 +30,28 @@ def setup(self):
         #self.model = weights / weights.sum()
 
         # Q-Matrix with possbile 400 states times 6 actions initializied with zeros
-        weights = np.zeros((400, 6))
+        # weights = np.zeros((400, len(ACTIONS)))
         # random initialization
-        # weights = np.random.random((400, 6))
+        # weights = np.abs(np.random.random((26, len(ACTIONS)-2)))
+        weights = np.zeros((5*15*15,len(ACTIONS)-2))
+
+        # idea of the model (remove the actions bomb and wait for the simpelst model)
+        # and represent the location of the agent in a 5 x 5 grid (ignore the outer walls and then build 3x3 blocks)
+        # track the distance to the neareast coin to the agent in the last vector spot (1,2,3,4 or higher)
         self.model = weights
     else:
         self.logger.info("Loading model from saved state.")
         with open("my-saved-model.pt", "rb") as file:
             self.model = pickle.load(file)
+
+
+def nearest_coin(game_state):
+    targets = game_state["coins"]
+    start = game_state["self"][3]
+
+    # calculates the distance between the agent and the nearest coin
+    best_dist = np.sum(np.abs(np.subtract(targets, start)), axis=1).min()
+    return best_dist
 
 
 def act(self, game_state: dict) -> str:
@@ -57,7 +71,35 @@ def act(self, game_state: dict) -> str:
         return np.random.choice(ACTIONS, p=[.25, .25, .25, .25, .0, .0])
 
     self.logger.debug("Querying model for action.")
-    return np.random.choice(ACTIONS, p=self.model) # needs to be reworked
+    # return np.random.choice(ACTIONS, p=self.model) # needs to be reworked
+
+    """"
+    step = game_state['step'] - 1 #array indexing begins with 0 and the steps with 1
+    idx = np.where(self.model[step,] == np.amax(self.model[step,]))
+    return ACTIONS[idx[0][0]]
+    """
+
+    # reduce 17x17 grid into 5x5 grid
+    name, score, bomb, coordinates = game_state["self"]
+    x,y = coordinates
+    x = x-1
+    y = y-1
+    # x = int((x-1)/3)
+    # y = int((y-1)/3)
+    # counting the 25 states from the upper left to the right and then the next row (0 to 24)
+    field = x + 15*y
+
+    distance = nearest_coin(game_state)
+
+    # reduce states by handling coin-agents distances of more than 4 as the same state
+    if distance > 4:
+        distance = 4
+
+    # count the 25 states from lowest to highest distance
+    state = field + 15*15*(distance-1)
+
+    action = np.argmax(self.model[state])
+    return ACTIONS[action]
 
 
 def state_to_features(game_state: dict) -> np.array:

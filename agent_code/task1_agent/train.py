@@ -8,6 +8,16 @@ from .callbacks import state_to_features
 
 import numpy as np
 
+ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
+
+translator = {'UP': 0,
+              'RIGHT': 1,
+              'DOWN': 2,
+              'LEFT': 3,
+              'WAIT': 4,
+              'BOMB': 5
+}
+
 # This is only an example!
 Transition = namedtuple('Transition',
                         ('state', 'action', 'next_state', 'reward'))
@@ -33,6 +43,10 @@ def setup_training(self):
     # Example: Setup an array that will note transition tuples
     # (s, a, s', r)
     self.transitions = deque(maxlen=TRANSITION_HISTORY_SIZE)
+
+    # define learning rate and discount factor for the q-learning
+    self.learning_rate = 0.9
+    self.discount_factor = 0.95
 
 def coin_dist(game_state):
     targets = game_state["coins"]
@@ -66,7 +80,39 @@ def wall_bump(old_game_state, new_game_state):
         return True
     else:
         return False
+    
+def nearest_coin(game_state):
+    targets = game_state["coins"]
+    start = game_state["self"][3]
 
+    # calculates the distance between the agent and the nearest coin
+    best_dist = np.sum(np.abs(np.subtract(targets, start)), axis=1).min()
+    return best_dist    
+    
+def get_state(game_state):
+    # reduce 17x17 grid into 5x5 grid
+    name, score, bomb, coordinates = game_state["self"]
+    x,y = coordinates
+    x = int((x-1)/3)
+    y = int((y-1)/3)
+    # counting the 25 states from the upper left to the right and then the next row (0 to 24)
+    field = x + 15*y
+
+    distance = nearest_coin(game_state)
+
+    if distance > 4:
+        distance = 4
+
+    # count the 25 states from lowest to highest distance
+    state = field + 15*15*(distance-1)
+    return state
+
+def update_model(self, state: int, action: int, reward: int, new_state: int):
+    # Q-learning update rule
+    current_value = self.model[state, action]
+    max_future_value = np.max(self.model[new_state])
+    new_value = current_value + self.learning_rate * (reward + self.discount_factor * max_future_value - current_value)
+    self.model[state, action] = new_value
 
 
 def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_state: dict, events: List[str]):
@@ -102,22 +148,16 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     self.transitions.append(Transition(state_to_features(old_game_state), self_action, state_to_features(new_game_state), reward_from_events(self, events)))
 
     # Q-learning update
-    alpha = 0.9     # learning rate
-    gamma = 0.95    # discount factor
-    weights = self.model
-    round = new_game_state["round"]
+    action = translator[self_action]
+    reward = reward_from_events(self, events) # Does the q-learning require only the new rewards or the entire sum ?
+    old_state = get_state(old_game_state)
+    new_state = get_state(new_game_state)
 
-    ACTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT', 'WAIT', 'BOMB']
-    for idx, a in ACTIONS:
-        if a == self_action:
-            action = idx
-    
-    a,b,c,reward_old = self.transitions.pop()
-    a,b,c,reward_new = self.transitions.pop()
-    reward = reward_new - reward_old
+    update_model(self, old_state, action, reward, new_state)
 
-    # Q-update rule
-    weights[round, action] = (1- alpha) * weights[round, action] + alpha *(reward + gamma * weights[round +1,].max())
+    # Store the model
+    with open("my-saved-model.pt", "wb") as file:
+        pickle.dump(self.model, file)
 
 
 def end_of_round(self, last_game_state: dict, last_action: str, events: List[str]):
@@ -153,7 +193,8 @@ def reward_from_events(self, events: List[str]) -> int:
         e.KILLED_OPPONENT: 5,
         WALL_BUMP_EVENT: -.8,
         SAME_POS_EVENT: -.5,
-        COIN_DIST_DECREASE_EVENT: .1
+        COIN_DIST_DECREASE_EVENT: .1,
+        e.KILLED_SELF: -10
     }
     reward_sum = 0
     for event in events:
