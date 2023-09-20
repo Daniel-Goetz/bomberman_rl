@@ -4,7 +4,7 @@ import pickle
 from typing import List
 
 import events as e
-from .callbacks import state_to_features, ACTIONS
+from .callbacks import state_to_features, ACTIONS, opposite
 
 import numpy as np
 import torch
@@ -28,6 +28,7 @@ GOT_AWAY_FROM_COIN = "AWAY"
 STAYED_PUT = "STAYED_PUT"
 NO_COIN_COLLECTED = "NO_COIN"
 WIGGLE_WIGGLE_WIGGLE = "DU_DU_DU_DUU_DUU_DUUUU"
+BOMB_DROPPED = "BOMB_DROPPED"
 
 class Trainer:
     def __init__(self, model, learning_rate, discount_factor) -> None:
@@ -100,13 +101,13 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     # elif old_game_features[4] > new_game_features[4]:
     #     events.append(GOT_CLOSER_TO_COIN)
 
-    if (old_game_features[5] == 1) and (e.MOVED_UP in events) and (old_game_features[0] == 0):
+    if (new_game_features[5] == 1) and (e.MOVED_UP in events) and (new_game_features[0] == 0):
         events.append(GOT_CLOSER_TO_COIN)
-    if (old_game_features[6] == 1) and (e.MOVED_DOWN in events) and (old_game_features[1] == 0):
+    if (new_game_features[6] == 1) and (e.MOVED_DOWN in events) and (new_game_features[1] == 0):
         events.append(GOT_CLOSER_TO_COIN)
-    if (old_game_features[7] == 1) and (e.MOVED_LEFT in events) and (old_game_features[2] == 0):
+    if (new_game_features[7] == 1) and (e.MOVED_LEFT in events) and (new_game_features[2] == 0):
         events.append(GOT_CLOSER_TO_COIN)
-    if (old_game_features[8] == 1) and (e.MOVED_RIGHT in events) and (old_game_features[3] == 0):
+    if (new_game_features[8] == 1) and (e.MOVED_RIGHT in events) and (new_game_features[3] == 0):
         events.append(GOT_CLOSER_TO_COIN)
 
     if old_game_state["self"][3] == new_game_state["self"][3]:
@@ -115,7 +116,10 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     if e.COIN_COLLECTED not in events:
         events.append(NO_COIN_COLLECTED)
 
-    if old_game_state["step"] > 2:
+    if e.BOMB_DROPPED in events:
+        events.append(BOMB_DROPPED)
+
+    if new_game_state["step"] > 2:
         if self.transitions[-2].action == opposite(self.transitions[-1].action) == self_action:
             events.append(WIGGLE_WIGGLE_WIGGLE)
 
@@ -162,7 +166,8 @@ def reward_from_events(self, events: List[str]) -> int:
         GOT_CLOSER_TO_COIN: 1,
         GOT_AWAY_FROM_COIN: -1.5,
         STAYED_PUT: -2,
-        WIGGLE_WIGGLE_WIGGLE: -2
+        WIGGLE_WIGGLE_WIGGLE: -2,
+        BOMB_DROPPED: -20
         # NO_COIN_COLLECTED: -0.2
     }
     reward_sum = 0
@@ -171,9 +176,3 @@ def reward_from_events(self, events: List[str]) -> int:
             reward_sum += game_rewards[event]
     self.logger.info(f"Awarded {reward_sum} for events {', '.join(events)}")
     return reward_sum
-
-def opposite(direction):
-    if direction == "UP": return "DOWN"
-    if direction == "DOWN": return "UP"
-    if direction == "LEFT": return "RIGHT"
-    if direction == "RIGHT": return "LEFT"

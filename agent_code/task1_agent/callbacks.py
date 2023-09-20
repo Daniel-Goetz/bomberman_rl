@@ -49,6 +49,7 @@ def setup(self):
             self.model = pickle.load(file)
 
 
+
 def act(self, game_state: dict) -> str:
     """
     Your agent should parse the input, think, and take a decision.
@@ -82,6 +83,10 @@ def act(self, game_state: dict) -> str:
             action = ACTIONS[idx]
         else: 
             break
+
+    # if game_state["step"] > 2:
+    #     if self.transitions[-1].action == opposite(self.transitions[-2].action) == self.transitions[-3].action:
+    #         action = np.random.choice(ACTIONS, p=[.25, .25, .25, .25, 0, 0])
 
     return action
 
@@ -146,10 +151,29 @@ def state_to_features(game_state: dict) -> np.array:
         distance_to_nearest_coin = np.min(distance_to_all_coins)
 
         x_nearest_coin, y_nearest_coin = nearest_coin
-        coin_up = 1 if y_nearest_coin < y_agent else 0
-        coin_down = 1 if y_nearest_coin > y_agent else 0
-        coin_left = 1 if x_nearest_coin < x_agent else 0
-        coin_right = 1 if x_nearest_coin > x_agent else 0
+        coin_up = 1 if (y_nearest_coin < y_agent) and ((np.subtract(y_nearest_coin, y_agent) == 1) and y_nearest_coin % 2 == 1) else 0
+        coin_down = 1 if (y_nearest_coin > y_agent) else 0
+        coin_left = 1 if (x_nearest_coin < x_agent) else 0
+        coin_right = 1 if (x_nearest_coin > x_agent) else 0
+
+        # coin_up = coin_down = coin_left = coin_right = 0
+
+        # if y_nearest_coin < y_agent:
+        #     coin_up = 1
+        #     if((np.subtract(y_nearest_coin, y_agent) == 1) and y_nearest_coin % 2 == 1) and (x_nearest_coin != x_agent):
+        #         coin_up = 0
+        # if y_nearest_coin > y_agent:
+        #     coin_down = 1
+        #     if((np.subtract(y_nearest_coin, y_agent) == 1) and y_nearest_coin % 2 == 1) and (x_nearest_coin != x_agent):
+        #         coin_down = 0
+        # if x_nearest_coin < x_agent:
+        #     coin_left = 1
+        #     if((np.subtract(x_nearest_coin, x_agent) == 1) and x_nearest_coin % 2 == 1) and (y_nearest_coin != y_agent):
+        #         coin_left = 0
+        # if x_nearest_coin > x_agent:
+        #     coin_right = 1
+        #     if((np.subtract(x_nearest_coin, x_agent) == 1) and x_nearest_coin % 2 == 1) and (y_nearest_coin != y_agent):
+        #         coin_right = 0
 
     except ValueError:
         distance_to_nearest_coin = 0
@@ -167,3 +191,9 @@ def state_to_features(game_state: dict) -> np.array:
 
     feature_vector = torch.tensor(feature_vector, dtype=torch.float)
     return feature_vector
+
+def opposite(direction):
+    if direction == "UP": return "DOWN"
+    if direction == "DOWN": return "UP"
+    if direction == "LEFT": return "RIGHT"
+    if direction == "RIGHT": return "LEFT"
