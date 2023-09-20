@@ -41,7 +41,7 @@ def setup(self):
     if self.train or not os.path.isfile("my-saved-model.pt"):
         self.logger.info("Setting up model from scratch.")
 
-        self.model = Network(5, 64, 6)
+        self.model = Network(9, 64, 6)
 
     else:
         self.logger.info("Loading model from saved state.")
@@ -67,9 +67,23 @@ def act(self, game_state: dict) -> str:
 
     self.logger.debug("Querying model for action.")
 
-    prediction = self.model(state_to_features(game_state))
-    return ACTIONS[torch.argmax(prediction).item()]
+    features = state_to_features(game_state)
+    prediction = self.model(features)
+    idx = torch.argmax(prediction).item()
+    action = ACTIONS[idx]
 
+    while True:
+        if ((action == "UP" and features[0] != 0) or
+            (action == "DOWN" and features[1] != 0) or
+            (action == "LEFT" and features[2] != 0) or
+            (action == "RIGHT" and features[3] != 0)):
+            prediction[idx] = -torch.inf
+            idx = torch.argmax(prediction).item()
+            action = ACTIONS[idx]
+        else: 
+            break
+
+    return action
 
 def state_to_features(game_state: dict) -> np.array:
     """
@@ -118,18 +132,38 @@ def state_to_features(game_state: dict) -> np.array:
 
     coin_positions = game_state["coins"]
 
-    # calculate distance to nearest coin
-    distance_to_all_coins = np.sum(np.abs(np.subtract(coin_positions, agent_position)), axis=1)
-    
-    # add two if wall
-    if x_agent % 2 == 0:
-        distance_to_all_coins = np.where(x_agent == np.array(coin_positions)[:, 0], distance_to_all_coins + 2, distance_to_all_coins)
-    elif y_agent % 2 == 0:
-        distance_to_all_coins = np.where(y_agent == np.array(coin_positions)[:, 1], distance_to_all_coins + 2, distance_to_all_coins)
+    try:
+        # calculate distance to nearest coin
+        distance_to_all_coins = np.sum(np.abs(np.subtract(coin_positions, agent_position)), axis=1)
+        
+        # add two if wall
+        if x_agent % 2 == 0:
+            distance_to_all_coins = np.where(x_agent == np.array(coin_positions)[:, 0], distance_to_all_coins + 2, distance_to_all_coins)
+        elif y_agent % 2 == 0:
+            distance_to_all_coins = np.where(y_agent == np.array(coin_positions)[:, 1], distance_to_all_coins + 2, distance_to_all_coins)
 
-    distance_to_nearest_coin = np.min(distance_to_all_coins)
-    
-    feature_vector.append(distance_to_nearest_coin)
+        nearest_coin = coin_positions[np.argmin(distance_to_all_coins)]
+        distance_to_nearest_coin = np.min(distance_to_all_coins)
+
+        x_nearest_coin, y_nearest_coin = nearest_coin
+        coin_up = 1 if y_nearest_coin < y_agent else 0
+        coin_down = 1 if y_nearest_coin > y_agent else 0
+        coin_left = 1 if x_nearest_coin < x_agent else 0
+        coin_right = 1 if x_nearest_coin > x_agent else 0
+
+    except ValueError:
+        distance_to_nearest_coin = 0
+        coin_up = 0
+        coin_down = 0
+        coin_left = 0
+        coin_right = 0
+
+    feature_vector.append(distance_to_nearest_coin) #4
+    feature_vector.append(coin_up) #5
+    feature_vector.append(coin_down) 
+    feature_vector.append(coin_left)
+    feature_vector.append(coin_right) #8
+
 
     feature_vector = torch.tensor(feature_vector, dtype=torch.float)
     return feature_vector
