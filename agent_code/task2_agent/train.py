@@ -23,8 +23,10 @@ DISCOUNT_FACTOR = 0.9
 
 # Events
 PLACEHOLDER_EVENT = "PLACEHOLDER"
-GOT_CLOSER_TO_COIN = "CLOSER"
-GOT_AWAY_FROM_COIN = "AWAY"
+GOT_CLOSER_TO_COIN = "CLOSER_COIN"
+GOT_CLOSER_TO_BOMB = "CLOSER_BOMB"
+GOT_AWAY_FROM_COIN = "AWAY_COIN"
+GOT_AWAY_FROM_BOMB = "AWAY_BOMB"
 STAYED_PUT = "STAYED_PUT"
 NO_COIN_COLLECTED = "NO_COIN"
 WIGGLE_WIGGLE_WIGGLE = "DU_DU_DU_DUU_DUU_DUUUU"
@@ -50,7 +52,10 @@ class Trainer:
         prediction = self.model(state)
 
         target = prediction.clone()
-        Q_new = reward + self.discount_factor * torch.max(self.model(next_state))
+        if end_of_round:
+            Q_new = reward
+        else:
+            Q_new = reward + self.discount_factor * torch.max(self.model(next_state))
 
         target[ACTIONS.index(action)] = Q_new
 
@@ -121,10 +126,16 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
         if self.transitions[-2].action == opposite(self.transitions[-1].action) == self_action:
             events.append(WIGGLE_WIGGLE_WIGGLE)
 
-    if new_game_features[9]:
-        events.append(IN_DANGER)
-    else: 
-        events.append(OUT_OF_DANGER)
+    if new_game_features[10] < 5:
+        if new_game_features[9]:
+            events.append(IN_DANGER)
+        else: 
+            events.append(OUT_OF_DANGER)
+
+    if new_game_features[10] > old_game_features[10]:
+        events.append(GOT_AWAY_FROM_BOMB)
+    elif new_game_features[10] < old_game_features[10]:
+        events.append(GOT_CLOSER_TO_BOMB)
 
     # state_to_features is defined in callbacks.py
     transition = Transition(old_game_features, self_action, new_game_features, reward_from_events(self, events))
@@ -148,7 +159,11 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     :param self: The same object that is passed to all of your callbacks.
     """
     self.logger.debug(f'Encountered event(s) {", ".join(map(repr, events))} in final step')
-    self.transitions.append(Transition(state_to_features(last_game_state), last_action, None, reward_from_events(self, events)))
+    transition = Transition(state_to_features(last_game_state), last_action, None, reward_from_events(self, events))
+
+    self.transitions.append(transition)
+
+    self.trainer.train_step(transition, end_of_round=True)
 
     # Store the model
     with open("my-saved-model.pt", "wb") as file:
@@ -165,15 +180,18 @@ def reward_from_events(self, events: List[str]) -> int:
     game_rewards = {
         e.COIN_COLLECTED: 5,
         e.KILLED_OPPONENT: 5,
-        e.BOMB_DROPPED: 4,
-        e.KILLED_SELF: -10,
-        e.CRATE_DESTROYED: 5,
+        e.BOMB_DROPPED: 3,
+        e.KILLED_SELF: -50,
+        e.GOT_KILLED: -20,
+        e.CRATE_DESTROYED: 3,
         GOT_CLOSER_TO_COIN: 1,
         GOT_AWAY_FROM_COIN: -1.5,
         STAYED_PUT: -2,
         WIGGLE_WIGGLE_WIGGLE: -2,
-        IN_DANGER: -3,
-        OUT_OF_DANGER: 3
+        IN_DANGER: -1,
+        OUT_OF_DANGER: 5,
+        GOT_AWAY_FROM_BOMB: 5,
+        GOT_CLOSER_TO_BOMB: -5
         # NO_COIN_COLLECTED: -0.2
     }
     reward_sum = 0

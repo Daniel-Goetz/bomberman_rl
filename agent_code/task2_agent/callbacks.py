@@ -41,7 +41,7 @@ def setup(self):
     if self.train or not os.path.isfile("my-saved-model.pt"):
         self.logger.info("Setting up model from scratch.")
 
-        self.model = Network(9, 64, 6)
+        self.model = Network(11, 64, 6)
 
     else:
         self.logger.info("Loading model from saved state.")
@@ -166,13 +166,22 @@ def state_to_features(game_state: dict) -> np.array:
 
     bombs = game_state["bombs"]
     in_danger = 0
+    distance_to_nearest_bomb = 5
     if bombs:
         for (x_bomb, y_bomb), t_bomb in bombs:
             if ((x_bomb == x_agent and np.abs(y_bomb - y_agent) < 4) or 
                 (y_bomb == y_agent and np.abs(x_bomb - x_agent) < 4)):
                 in_danger = 1
+
+        bomb_positions = [bomb_pos for (bomb_pos, _) in bombs]
+        distance_to_all_bombs = np.sum(np.abs(np.subtract(bomb_positions, agent_position)), axis=1)
+        # nearest_bomb = bomb_positions[np.argmin(distance_to_all_bombs)]
+        distance_to_nearest_bomb = np.min(distance_to_all_bombs)
+        # set to 5 if bigger than 5
+        distance_to_nearest_bomb = 5 if distance_to_nearest_bomb > 5 else distance_to_nearest_bomb
                 
     feature_vector.append(in_danger) #9
+    feature_vector.append(distance_to_nearest_bomb) #10
 
     feature_vector = torch.tensor(feature_vector, dtype=torch.float)
     return feature_vector
