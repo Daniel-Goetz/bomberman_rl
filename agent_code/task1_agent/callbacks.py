@@ -156,25 +156,6 @@ def state_to_features(game_state: dict) -> np.array:
         coin_left = 1 if (x_nearest_coin < x_agent) else 0
         coin_right = 1 if (x_nearest_coin > x_agent) else 0
 
-        # coin_up = coin_down = coin_left = coin_right = 0
-
-        # if y_nearest_coin < y_agent:
-        #     coin_up = 1
-        #     if((np.subtract(y_nearest_coin, y_agent) == 1) and y_nearest_coin % 2 == 1) and (x_nearest_coin != x_agent):
-        #         coin_up = 0
-        # if y_nearest_coin > y_agent:
-        #     coin_down = 1
-        #     if((np.subtract(y_nearest_coin, y_agent) == 1) and y_nearest_coin % 2 == 1) and (x_nearest_coin != x_agent):
-        #         coin_down = 0
-        # if x_nearest_coin < x_agent:
-        #     coin_left = 1
-        #     if((np.subtract(x_nearest_coin, x_agent) == 1) and x_nearest_coin % 2 == 1) and (y_nearest_coin != y_agent):
-        #         coin_left = 0
-        # if x_nearest_coin > x_agent:
-        #     coin_right = 1
-        #     if((np.subtract(x_nearest_coin, x_agent) == 1) and x_nearest_coin % 2 == 1) and (y_nearest_coin != y_agent):
-        #         coin_right = 0
-
     except ValueError:
         distance_to_nearest_coin = 0
         coin_up = 0
@@ -187,6 +168,66 @@ def state_to_features(game_state: dict) -> np.array:
     feature_vector.append(coin_down) 
     feature_vector.append(coin_left)
     feature_vector.append(coin_right) #8
+
+
+
+    # create features to dodge bombs
+    bombs = game_state["bombs"]
+
+    # filter for bombs which can kill the agent
+    # using the information when the bomb detonates could restrict this list even further
+    dangerous_bombs = []
+    for bomb in bombs:
+        x_bomb, y_bomb = bomb[0]
+        if(np.abs(np.subtract(x_bomb - x_agent)) + np.abs(np.subtract(y_bomb, y_agent)) < 8):
+            dangerous_bombs.append(bomb)
+        
+    for bomb in dangerous_bombs:
+        # explosion_fields contains the fields which will explode
+        explosion_fields = np.empty(2, 12, dtype= int)
+        x_bomb, y_bomb = bomb[1]
+        for i in range(12):
+            k = i % 4
+            j = i % 3
+            # fields downwards
+            if k == 0:
+                explosion_fields[0,i] = x_bomb
+                explosion_fields[1,i] = y_bomb + 1 + j
+            # fields upwards
+            if k == 1:
+                explosion_fields[0,i] = x_bomb
+                explosion_fields[1,i] = y_bomb - 1 - j
+            # fields to the right
+            if k == 2:
+                explosion_fields[0,i] = x_bomb + 1 + j
+                explosion_fields[1,i] = y_bomb
+            # fields to the left
+            if k == 3:
+                explosion_fields[0,i] = x_bomb - 1 - j
+                explosion_fields[1,i] = y_bomb
+
+            # delete fields which hit stone_walls or crates
+            # iterate over explosion_fields and check if field of coordinate == -1 or 1
+
+            # check for self traps
+            
+            # check downwards
+            dodge_down = 0
+            downwards_explosion = explosion_fields[explosion_fields[1,:] < y_bomb]
+            for i in range(len(downwards_explosion)/2):
+                if(field[x_bomb + 1, y_bomb - i - 1] == 0) or (field[x_bomb - 1, y_bomb - i - 1] == 0):
+                    dodge_down = 1
+            if(len(downwards_explosion) == 6 and field[x_bomb, y_bomb - 4] == 0):
+                dodge_down = 1
+
+
+
+    # dodge = 1 there is an escape route
+    # dodge = 0 there is no escape route
+    # feature_vector.append(dodge_up) #9
+    # feature_vector.append(dodge_down) 
+    # feature_vector.append(dodge_left)
+    # feature_vector.append(dodge_right) #12
 
 
     feature_vector = torch.tensor(feature_vector, dtype=torch.float)
