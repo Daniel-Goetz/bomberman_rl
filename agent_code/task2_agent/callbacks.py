@@ -41,7 +41,7 @@ def setup(self):
     if self.train or not os.path.isfile("my-saved-model.pt"):
         self.logger.info("Setting up model from scratch.")
 
-        self.model = Network(11, 64, 6)
+        self.model = Network(15, 64, 6)
 
     else:
         self.logger.info("Loading model from saved state.")
@@ -167,6 +167,7 @@ def state_to_features(game_state: dict) -> np.array:
     bombs = game_state["bombs"]
     in_danger = 0
     distance_to_nearest_bomb = 5
+    dodge_down = dodge_left = dodge_right = dodge_up = -1
     if bombs:
         for (x_bomb, y_bomb), t_bomb in bombs:
             if ((x_bomb == x_agent and np.abs(y_bomb - y_agent) < 4) or 
@@ -175,13 +176,106 @@ def state_to_features(game_state: dict) -> np.array:
 
         bomb_positions = [bomb_pos for (bomb_pos, _) in bombs]
         distance_to_all_bombs = np.sum(np.abs(np.subtract(bomb_positions, agent_position)), axis=1)
-        # nearest_bomb = bomb_positions[np.argmin(distance_to_all_bombs)]
         distance_to_nearest_bomb = np.min(distance_to_all_bombs)
         # set to 5 if bigger than 5
         distance_to_nearest_bomb = 5 if distance_to_nearest_bomb > 5 else distance_to_nearest_bomb
-                
+
+        nearest_bomb = bomb_positions[np.argmin(distance_to_all_bombs)]
+
+        # check diretion up for escape route
+        x_nearest_bomb, y_nearest_bomb = nearest_bomb
+
+        # check for escape in upward direction
+        explosion_map_up = []
+        dodge_up = 0
+
+        try:
+            for i in range(3):
+                if(field[x_nearest_bomb, y_nearest_bomb - i - 1] == 0):
+                    explosion_map_up.append((x_nearest_bomb, y_nearest_bomb - i - 1))
+                else:
+                    break
+
+            for tile in explosion_map_up:
+                x, y = tile
+                if (field[x + 1, y] == 0) or (field[x - 1, y] == 0):
+                    dodge_up = 1
+                    break
+            if(len(explosion_map_up) == 3) and dodge_up != 1:
+                if(field[x_nearest_bomb, y_nearest_bomb - 4] == 0):
+                    dodge_up = 1
+        except IndexError: y_nearest_bomb - 4 < 0
+
+        
+
+        # check for escape in downward direction
+        explosion_map_down = []
+        dodge_down = 0
+
+        for i in range(3):
+            if(field[x_nearest_bomb, y_nearest_bomb + i + 1] == 0):
+                explosion_map_down.append((x_nearest_bomb, y_nearest_bomb + i + 1))
+            else:
+                break
+
+        for tile in explosion_map_down:
+            x, y = tile
+            if (field[x + 1, y] == 0) or (field[x - 1, y] == 0):
+                dodge_down = 1
+                break
+        if(len(explosion_map_down) == 3) and dodge_up != 1:
+            if(field[x_nearest_bomb, y_nearest_bomb + 4] == 0):
+                dodge_down = 1
+
+        # check for escape to the left
+        explosion_map_left = []
+        dodge_left = 0
+
+        for i in range(3):
+            if(field[x_nearest_bomb - i - 1, y_nearest_bomb] == 0):
+                explosion_map_left.append((x_nearest_bomb - i - 1, y_nearest_bomb))
+            else:
+                break
+
+        for tile in explosion_map_left:
+            x, y = tile
+            if (field[x, y + 1] == 0) or (field[x, y - 1] == 0):
+                dodge_left = 1
+                break
+        if(len(explosion_map_left) == 3) and dodge_up != 1:
+            if(field[x_nearest_bomb - 4, y_nearest_bomb] == 0):
+              dodge_left = 1
+
+        # check for escape to the right
+        explosion_map_right = []
+        dodge_right = 0
+
+        for i in range(3):
+            if(field[x_nearest_bomb + i + 1, y_nearest_bomb] == 0):
+                explosion_map_right.append((x_nearest_bomb + i + 1, y_nearest_bomb))
+            else:
+                break
+
+        for tile in explosion_map_right:
+            x, y = tile
+            if (field[x, y + 1] == 0) or (field[x, y - 1] == 0):
+                dodge_right = 1
+                break
+        if(len(explosion_map_right) == 3) and dodge_up != 1:
+            if(field[x_nearest_bomb + 4, y_nearest_bomb] == 0):
+                dodge_right = 1
+    
     feature_vector.append(in_danger) #9
     feature_vector.append(distance_to_nearest_bomb) #10
+
+    # get escape directions
+    # dodge = 1 escape route / dodge = 0 no escape route
+
+    feature_vector.append(dodge_up) #11
+    feature_vector.append(dodge_down)
+    feature_vector.append(dodge_left)
+    feature_vector.append(dodge_right) #14
+
 
     feature_vector = torch.tensor(feature_vector, dtype=torch.float)
     return feature_vector

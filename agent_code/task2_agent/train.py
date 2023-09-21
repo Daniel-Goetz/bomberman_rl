@@ -32,6 +32,10 @@ NO_COIN_COLLECTED = "NO_COIN"
 WIGGLE_WIGGLE_WIGGLE = "DU_DU_DU_DUU_DUU_DUUUU"
 IN_DANGER = "IN_DANGER"
 OUT_OF_DANGER = "OUT_OF_DANGER"
+ESCAPE_DIRECTION = "ESCAPE_DIRECTION"
+NO_ESCAPE_DIRECTION = "NO_ESCAPE_DIRECTION"
+CORNER_BOMB = "CORNER_BOMB"
+RUN_INTO_ACTIVE_BOMB = "RUN_INTO_ACTIVE_BOMB"
 
 class Trainer:
     def __init__(self, model, learning_rate, discount_factor) -> None:
@@ -137,6 +141,34 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     elif new_game_features[10] < old_game_features[10]:
         events.append(GOT_CLOSER_TO_BOMB)
 
+    # 11 - 14 escape route up, down, left ,right (1 possbile 0 not possible)
+    if (old_game_features[11] == 1) and (e.MOVED_UP in events):
+        events.append(ESCAPE_DIRECTION)
+    if (old_game_features[12] == 1) and (e.MOVED_DOWN in events):
+        events.append(ESCAPE_DIRECTION)
+    if (old_game_features[13] == 1) and (e.MOVED_LEFT in events):
+        events.append(ESCAPE_DIRECTION)
+    if (old_game_features[14] == 1) and (e.MOVED_RIGHT in events):
+        events.append(ESCAPE_DIRECTION)
+
+    if (old_game_features[11] == 0) and (e.MOVED_UP in events):
+        events.append(NO_ESCAPE_DIRECTION)
+    if (old_game_features[12] == 0) and (e.MOVED_DOWN in events):
+        events.append(NO_ESCAPE_DIRECTION)
+    if (old_game_features[13] == 0) and (e.MOVED_LEFT in events):
+        events.append(NO_ESCAPE_DIRECTION)
+    if (old_game_features[14] == 0) and (e.MOVED_RIGHT in events):
+        events.append(NO_ESCAPE_DIRECTION)
+
+    corner = [(1,1), (1,15), (15,1), (15,15)]
+    if(e.BOMB_DROPPED in events) and (new_game_state["self"][3] in corner):
+        events.append(CORNER_BOMB)
+
+    agent_position = new_game_state["self"][3]
+    x,y = agent_position
+    if(new_game_state["explosion_map"][x,y] != 0):
+        events.append(RUN_INTO_ACTIVE_BOMB)
+
     # state_to_features is defined in callbacks.py
     transition = Transition(old_game_features, self_action, new_game_features, reward_from_events(self, events))
     
@@ -178,20 +210,24 @@ def reward_from_events(self, events: List[str]) -> int:
     certain behavior.
     """
     game_rewards = {
-        e.COIN_COLLECTED: 5,
-        e.KILLED_OPPONENT: 5,
-        e.BOMB_DROPPED: 3,
-        e.KILLED_SELF: -50,
-        e.GOT_KILLED: -20,
-        e.CRATE_DESTROYED: 3,
+        e.COIN_COLLECTED: 25,
+        e.KILLED_OPPONENT: 0,
+        e.BOMB_DROPPED: 10,
+        e.KILLED_SELF: -75,
+        e.GOT_KILLED: 0,
+        e.CRATE_DESTROYED: 15,
         GOT_CLOSER_TO_COIN: 1,
         GOT_AWAY_FROM_COIN: -1.5,
-        STAYED_PUT: -2,
+        STAYED_PUT: -5,
         WIGGLE_WIGGLE_WIGGLE: -2,
-        IN_DANGER: -1,
-        OUT_OF_DANGER: 5,
-        GOT_AWAY_FROM_BOMB: 5,
-        GOT_CLOSER_TO_BOMB: -5
+        IN_DANGER: 0,
+        OUT_OF_DANGER: 0,
+        GOT_AWAY_FROM_BOMB: 1,
+        GOT_CLOSER_TO_BOMB: -3,
+        ESCAPE_DIRECTION: 7.5,
+        NO_ESCAPE_DIRECTION: -15,
+        CORNER_BOMB: -20,
+        RUN_INTO_ACTIVE_BOMB: -50
         # NO_COIN_COLLECTED: -0.2
     }
     reward_sum = 0
