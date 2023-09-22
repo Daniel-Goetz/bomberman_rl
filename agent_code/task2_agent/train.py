@@ -35,6 +35,7 @@ OUT_OF_DANGER = "OUT_OF_DANGER"
 ESCAPE_DIRECTION = "ESCAPE_DIRECTION"
 NO_ESCAPE_DIRECTION = "NO_ESCAPE_DIRECTION"
 CORNER_BOMB = "CORNER_BOMB"
+BAD_BOMB = "OWN_BOMB_THE_AGENT_CANNOT_DODGE"
 RUN_INTO_ACTIVE_BOMB = "RUN_INTO_ACTIVE_BOMB"
 
 class Trainer:
@@ -169,6 +170,11 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     if(new_game_state["explosion_map"][x,y] != 0):
         events.append(RUN_INTO_ACTIVE_BOMB)
 
+    # bomb dropped without any chances to escape this bomb
+    if(e.BOMB_DROPPED in events) and (new_game_features[11] == new_game_features[12]
+                                       == new_game_features[13] == new_game_features[14] == 0):
+        events.append(BAD_BOMB)
+
     # state_to_features is defined in callbacks.py
     transition = Transition(old_game_features, self_action, new_game_features, reward_from_events(self, events))
     
@@ -210,24 +216,25 @@ def reward_from_events(self, events: List[str]) -> int:
     certain behavior.
     """
     game_rewards = {
-        e.COIN_COLLECTED: 25,
+        e.COIN_COLLECTED: 40,
         e.KILLED_OPPONENT: 0,
-        e.BOMB_DROPPED: 10,
-        e.KILLED_SELF: -75,
+        e.BOMB_DROPPED: 7.5,
+        e.KILLED_SELF: -150,
         e.GOT_KILLED: 0,
-        e.CRATE_DESTROYED: 15,
+        e.CRATE_DESTROYED: 20,
         GOT_CLOSER_TO_COIN: 1,
         GOT_AWAY_FROM_COIN: -1.5,
         STAYED_PUT: -5,
         WIGGLE_WIGGLE_WIGGLE: -2,
         IN_DANGER: 0,
         OUT_OF_DANGER: 0,
-        GOT_AWAY_FROM_BOMB: 1,
-        GOT_CLOSER_TO_BOMB: -3,
-        ESCAPE_DIRECTION: 7.5,
-        NO_ESCAPE_DIRECTION: -15,
+        GOT_AWAY_FROM_BOMB: 8,
+        GOT_CLOSER_TO_BOMB: -10,
+        ESCAPE_DIRECTION: 5,
+        NO_ESCAPE_DIRECTION: -7,
         CORNER_BOMB: -20,
-        RUN_INTO_ACTIVE_BOMB: -50
+        RUN_INTO_ACTIVE_BOMB: -50,
+        BAD_BOMB: -100
         # NO_COIN_COLLECTED: -0.2
     }
     reward_sum = 0

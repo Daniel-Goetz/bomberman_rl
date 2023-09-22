@@ -182,7 +182,7 @@ def state_to_features(game_state: dict) -> np.array:
 
         nearest_bomb = bomb_positions[np.argmin(distance_to_all_bombs)]
 
-        # check diretion up for escape route
+        # check for escape directions
         x_nearest_bomb, y_nearest_bomb = nearest_bomb
 
         # check for escape in upward direction
