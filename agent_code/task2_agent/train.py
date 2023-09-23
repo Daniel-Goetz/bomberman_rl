@@ -231,29 +231,29 @@ def reward_from_events(self, events: List[str]) -> int:
     certain behavior.
     """
     game_rewards = {
-        e.COIN_COLLECTED: 5,
+        # e.COIN_COLLECTED: 5, 1
         # e.KILLED_OPPONENT: 0,
         e.BOMB_DROPPED: 5,
-        e.KILLED_SELF: -25,
+        # e.KILLED_SELF: -25, 1
         # e.GOT_KILLED: 0,
         # e.CRATE_DESTROYED: 20,
-        GOT_CLOSER_TO_COIN: 0.5,
-        GOT_AWAY_FROM_COIN: -0.75,
+        # GOT_CLOSER_TO_COIN: 0.5, 1
+        # GOT_AWAY_FROM_COIN: -0.75, 1
         # STAYED_PUT: -0.05,
         # WIGGLE_WIGGLE_WIGGLE: -2,
         # IN_DANGER: 0,
         # OUT_OF_DANGER: 0,
         # GOT_AWAY_FROM_BOMB: 30,
         # GOT_CLOSER_TO_BOMB: -50,
-        SAFE_SQUARE: 10,
+        # SAFE_SQUARE: 5,
         ESCAPE_DIRECTION: 2.5,
-        NO_ESCAPE_DIRECTION: -5,
+        # NO_ESCAPE_DIRECTION: -5,
         WAIT_IN_EXPLOSION_AREA: -5,
         CORNER_BOMB: -10,
         # RUN_INTO_ACTIVE_BOMB: -20,
         # BAD_BOMB: -100
         # NO_COIN_COLLECTED: -0.2,
-        DIED_TO_BEGIN: -15,
+        # DIED_TO_BEGIN: -15, 1
         # REDUCE_BOMB_AWARD_WHEN_COINS_EXIST: -5
     }
     reward_sum = 0
