@@ -187,7 +187,7 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     if(e.KILLED_SELF in events) and (old_game_state["step"] < 10):
         events.append(DIED_TO_BEGIN)
 
-    if(e.BOMB_DROPPED in events) and (old_game_state["bombs"]):
+    if(e.BOMB_DROPPED in events) and (old_game_state["coins"]):
         events.append(REDUCE_BOMB_AWARD_WHEN_COINS_EXIST)
 
     # state_to_features is defined in callbacks.py
@@ -245,7 +245,7 @@ def reward_from_events(self, events: List[str]) -> int:
         # OUT_OF_DANGER: 0,
         # GOT_AWAY_FROM_BOMB: 30,
         # GOT_CLOSER_TO_BOMB: -50,
-        # SAFE_SQUARE: 10,
+        SAFE_SQUARE: 10,
         ESCAPE_DIRECTION: 2.5,
         NO_ESCAPE_DIRECTION: -5,
         WAIT_IN_EXPLOSION_AREA: -5,
@@ -253,8 +253,8 @@ def reward_from_events(self, events: List[str]) -> int:
         # RUN_INTO_ACTIVE_BOMB: -20,
         # BAD_BOMB: -100
         # NO_COIN_COLLECTED: -0.2,
-        # DIED_TO_BEGIN: -5,
-        REDUCE_BOMB_AWARD_WHEN_COINS_EXIST: -4
+        DIED_TO_BEGIN: -15,
+        # REDUCE_BOMB_AWARD_WHEN_COINS_EXIST: -5
     }
     reward_sum = 0
     for event in events:

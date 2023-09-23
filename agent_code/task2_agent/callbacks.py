@@ -168,8 +168,9 @@ def state_to_features(game_state: dict) -> np.array:
     in_danger = 0
     distance_to_nearest_bomb = 5
     dodge_down = dodge_left = dodge_right = dodge_up = -1
-    safe = 1
+    safe = -1
     if bombs:
+        safe = 1
         for (x_bomb, y_bomb), t_bomb in bombs:
             if ((x_bomb == x_agent and np.abs(y_bomb - y_agent) < 4) or 
                 (y_bomb == y_agent and np.abs(x_bomb - x_agent) < 4)):
