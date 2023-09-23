@@ -37,7 +37,10 @@ NO_ESCAPE_DIRECTION = "NO_ESCAPE_DIRECTION"
 CORNER_BOMB = "CORNER_BOMB"
 BAD_BOMB = "OWN_BOMB_THE_AGENT_CANNOT_DODGE"
 RUN_INTO_ACTIVE_BOMB = "RUN_INTO_ACTIVE_BOMB"
-
+SAFE_SQUARE = "SAFE_SQUARE"
+WAIT_IN_EXPLOSION_AREA = "WAIT_IN_EXPLOSION_AREA"
+DIED_TO_BEGIN = "DIED_TO_BEGIN"
+REDUCE_BOMB_AWARD_WHEN_COINS_EXIST = "REDUCE_BOMB_AWARD_WHEN_COINS_EXIST"
 class Trainer:
     def __init__(self, model, learning_rate, discount_factor) -> None:
         self.model = model
@@ -143,22 +146,22 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
         events.append(GOT_CLOSER_TO_BOMB)
 
     # 11 - 14 escape route up, down, left ,right (1 possbile 0 not possible)
-    if (old_game_features[11] == 1) and (e.MOVED_UP in events):
+    if (old_game_features[11] == 1) and (e.MOVED_UP in events) and (old_game_features[15] == 0):
         events.append(ESCAPE_DIRECTION)
-    if (old_game_features[12] == 1) and (e.MOVED_DOWN in events):
+    if (old_game_features[12] == 1) and (e.MOVED_DOWN in events) and (old_game_features[15] == 0):
         events.append(ESCAPE_DIRECTION)
-    if (old_game_features[13] == 1) and (e.MOVED_LEFT in events):
+    if (old_game_features[13] == 1) and (e.MOVED_LEFT in events) and (old_game_features[15] == 0):
         events.append(ESCAPE_DIRECTION)
-    if (old_game_features[14] == 1) and (e.MOVED_RIGHT in events):
+    if (old_game_features[14] == 1) and (e.MOVED_RIGHT in events) and (old_game_features[15] == 0):
         events.append(ESCAPE_DIRECTION)
 
-    if (old_game_features[11] == 0) and (e.MOVED_UP in events):
+    if (old_game_features[11] == 0) and (e.MOVED_UP in events) and (old_game_features[15] == 0):
         events.append(NO_ESCAPE_DIRECTION)
-    if (old_game_features[12] == 0) and (e.MOVED_DOWN in events):
+    if (old_game_features[12] == 0) and (e.MOVED_DOWN in events) and (old_game_features[15] == 0):
         events.append(NO_ESCAPE_DIRECTION)
-    if (old_game_features[13] == 0) and (e.MOVED_LEFT in events):
+    if (old_game_features[13] == 0) and (e.MOVED_LEFT in events) and (old_game_features[15] == 0):
         events.append(NO_ESCAPE_DIRECTION)
-    if (old_game_features[14] == 0) and (e.MOVED_RIGHT in events):
+    if (old_game_features[14] == 0) and (e.MOVED_RIGHT in events) and (old_game_features[15] == 0):
         events.append(NO_ESCAPE_DIRECTION)
 
     corner = [(1,1), (1,15), (15,1), (15,15)]
@@ -174,6 +177,18 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     if(e.BOMB_DROPPED in events) and (new_game_features[11] == new_game_features[12]
                                        == new_game_features[13] == new_game_features[14] == 0):
         events.append(BAD_BOMB)
+    
+    if(new_game_features[15] == 1):
+        events.append(SAFE_SQUARE)
+    
+    if(new_game_features[15] == 0) and (e.WAITED in events):
+        events.append(WAIT_IN_EXPLOSION_AREA)
+
+    if(e.KILLED_SELF in events) and (old_game_state["step"] < 10):
+        events.append(DIED_TO_BEGIN)
+
+    if(e.BOMB_DROPPED in events) and (old_game_state["bombs"]):
+        events.append(REDUCE_BOMB_AWARD_WHEN_COINS_EXIST)
 
     # state_to_features is defined in callbacks.py
     transition = Transition(old_game_features, self_action, new_game_features, reward_from_events(self, events))
@@ -216,26 +231,30 @@ def reward_from_events(self, events: List[str]) -> int:
     certain behavior.
     """
     game_rewards = {
-        e.COIN_COLLECTED: 40,
-        e.KILLED_OPPONENT: 0,
-        e.BOMB_DROPPED: 7.5,
-        e.KILLED_SELF: -150,
-        e.GOT_KILLED: 0,
-        e.CRATE_DESTROYED: 20,
-        GOT_CLOSER_TO_COIN: 1,
-        GOT_AWAY_FROM_COIN: -1.5,
-        STAYED_PUT: -5,
-        WIGGLE_WIGGLE_WIGGLE: -2,
-        IN_DANGER: 0,
-        OUT_OF_DANGER: 0,
-        GOT_AWAY_FROM_BOMB: 8,
-        GOT_CLOSER_TO_BOMB: -10,
-        ESCAPE_DIRECTION: 5,
-        NO_ESCAPE_DIRECTION: -7,
-        CORNER_BOMB: -20,
-        RUN_INTO_ACTIVE_BOMB: -50,
-        BAD_BOMB: -100
-        # NO_COIN_COLLECTED: -0.2
+        e.COIN_COLLECTED: 5,
+        # e.KILLED_OPPONENT: 0,
+        e.BOMB_DROPPED: 5,
+        e.KILLED_SELF: -25,
+        # e.GOT_KILLED: 0,
+        # e.CRATE_DESTROYED: 20,
+        GOT_CLOSER_TO_COIN: 0.5,
+        GOT_AWAY_FROM_COIN: -0.75,
+        # STAYED_PUT: -0.05,
+        # WIGGLE_WIGGLE_WIGGLE: -2,
+        # IN_DANGER: 0,
+        # OUT_OF_DANGER: 0,
+        # GOT_AWAY_FROM_BOMB: 30,
+        # GOT_CLOSER_TO_BOMB: -50,
+        # SAFE_SQUARE: 10,
+        ESCAPE_DIRECTION: 2.5,
+        NO_ESCAPE_DIRECTION: -5,
+        WAIT_IN_EXPLOSION_AREA: -5,
+        CORNER_BOMB: -10,
+        # RUN_INTO_ACTIVE_BOMB: -20,
+        # BAD_BOMB: -100
+        # NO_COIN_COLLECTED: -0.2,
+        # DIED_TO_BEGIN: -5,
+        REDUCE_BOMB_AWARD_WHEN_COINS_EXIST: -4
     }
     reward_sum = 0
     for event in events:
