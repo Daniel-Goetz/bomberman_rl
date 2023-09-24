@@ -356,7 +356,6 @@ def state_to_features(game_state: dict) -> np.array:
     feature_vector.append(dodge_left)
     feature_vector.append(dodge_right) #14
     feature_vector.append(safe) #15
-
-
+     
     feature_vector = torch.tensor(feature_vector, dtype=torch.float)
     return feature_vector

@@ -41,6 +41,9 @@ SAFE_SQUARE = "SAFE_SQUARE"
 WAIT_IN_EXPLOSION_AREA = "WAIT_IN_EXPLOSION_AREA"
 DIED_TO_BEGIN = "DIED_TO_BEGIN"
 REDUCE_BOMB_AWARD_WHEN_COINS_EXIST = "REDUCE_BOMB_AWARD_WHEN_COINS_EXIST"
+BOMB_REPETITION = "BOMB_REPETITION"
+
+
 class Trainer:
     def __init__(self, model, learning_rate, discount_factor) -> None:
         self.model = model
@@ -83,6 +86,7 @@ def setup_training(self):
     """
     # Example: Setup an array that will note transition tuples
     # (s, a, r, s')
+    self.bombhistory = []
     self.transitions = deque(maxlen=TRANSITION_HISTORY_SIZE)
     self.trainer = Trainer(self.model, LEARNING_RATE, DISCOUNT_FACTOR)
 
@@ -114,6 +118,16 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
         events.append(GOT_AWAY_FROM_COIN)
     # elif old_game_features[4] > new_game_features[4]:
     #     events.append(GOT_CLOSER_TO_COIN)
+
+    if(e.BOMB_DROPPED in events):
+        bombs = new_game_state["bombs"]
+        bomb_positions = [bomb_pos for (bomb_pos, _) in bombs]
+        self.bombhistory.append(bomb_positions)
+
+    try:
+        if(self.bombhistory[-1] == self.bombhistory[-3]) and (self.bombhistory[-2] == self.bombhistory[-4]):
+            events.append(BOMB_REPETITION)
+    except IndexError: len(self.bombhistory) < 4
 
     if (new_game_features[5] == 1) and (e.MOVED_UP in events) and (new_game_features[0] == 0):
         events.append(GOT_CLOSER_TO_COIN)
@@ -231,14 +245,14 @@ def reward_from_events(self, events: List[str]) -> int:
     certain behavior.
     """
     game_rewards = {
-        # e.COIN_COLLECTED: 5, 1
+        e.COIN_COLLECTED: 2,
         # e.KILLED_OPPONENT: 0,
         e.BOMB_DROPPED: 5,
-        # e.KILLED_SELF: -25, 1
+        # e.KILLED_SELF: -5,
         # e.GOT_KILLED: 0,
         # e.CRATE_DESTROYED: 20,
-        # GOT_CLOSER_TO_COIN: 0.5, 1
-        # GOT_AWAY_FROM_COIN: -0.75, 1
+        GOT_CLOSER_TO_COIN: 0.5,
+        # GOT_AWAY_FROM_COIN: -0.75,
         # STAYED_PUT: -0.05,
         # WIGGLE_WIGGLE_WIGGLE: -2,
         # IN_DANGER: 0,
@@ -250,11 +264,12 @@ def reward_from_events(self, events: List[str]) -> int:
         # NO_ESCAPE_DIRECTION: -5,
         WAIT_IN_EXPLOSION_AREA: -5,
         CORNER_BOMB: -10,
-        # RUN_INTO_ACTIVE_BOMB: -20,
+        # RUN_INTO_ACTIVE_BOMB: -15,
         # BAD_BOMB: -100
         # NO_COIN_COLLECTED: -0.2,
         # DIED_TO_BEGIN: -15, 1
         # REDUCE_BOMB_AWARD_WHEN_COINS_EXIST: -5
+        # BOMB_REPETITION: -20
     }
     reward_sum = 0
     for event in events:
