@@ -167,13 +167,13 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
             events.append(WAIT_2)
     except IndexError: len(self.actionhistory) < 2
 
-    if (new_game_features[5] == 1) and (e.MOVED_UP in events) and (new_game_features[0] == 0) and (new_game_features[4] < 7):
+    if (old_game_features[5] == 1) and (e.MOVED_UP in events) and (old_game_features[0] == 0) and (old_game_features[4] < 7):
         events.append(GOT_CLOSER_TO_COIN)
-    if (new_game_features[6] == 1) and (e.MOVED_DOWN in events) and (new_game_features[1] == 0) and (new_game_features[4] < 7):
+    if (old_game_features[6] == 1) and (e.MOVED_DOWN in events) and (old_game_features[1] == 0) and (old_game_features[4] < 7):
         events.append(GOT_CLOSER_TO_COIN)
-    if (new_game_features[7] == 1) and (e.MOVED_LEFT in events) and (new_game_features[2] == 0) and (new_game_features[4] < 7):
+    if (old_game_features[7] == 1) and (e.MOVED_LEFT in events) and (old_game_features[2] == 0) and (old_game_features[4] < 7):
         events.append(GOT_CLOSER_TO_COIN)
-    if (new_game_features[8] == 1) and (e.MOVED_RIGHT in events) and (new_game_features[3] == 0) and (new_game_features[4] < 7):
+    if (old_game_features[8] == 1) and (e.MOVED_RIGHT in events) and (old_game_features[3] == 0) and (old_game_features[4] < 7):
         events.append(GOT_CLOSER_TO_COIN)
 
     if old_game_state["self"][3] == new_game_state["self"][3]:
