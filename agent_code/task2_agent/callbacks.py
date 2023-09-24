@@ -41,7 +41,7 @@ def setup(self):
     if self.train or not os.path.isfile("my-saved-model.pt"):
         self.logger.info("Setting up model from scratch.")
 
-        self.model = Network(16, 64, 6)
+        self.model = Network(20, 256, 6)
 
     else:
         self.logger.info("Loading model from saved state.")
@@ -72,11 +72,20 @@ def act(self, game_state: dict) -> str:
     idx = torch.argmax(prediction).item()
     action = ACTIONS[idx]
 
+    field = game_state["field"]
+    bombs = game_state["bombs"]
+    bomb_positions = [bomb_pos for (bomb_pos, _) in bombs]
+    others = game_state["others"]
+    other_postions = [other_pos for (_,_,_, other_pos) in others]
+    x_agent, y_agent = game_state["self"][3]
+
+
     while True:
-        if ((action == "UP" and features[0] != 0) or
-            (action == "DOWN" and features[1] != 0) or
-            (action == "LEFT" and features[2] != 0) or
-            (action == "RIGHT" and features[3] != 0)):
+        if ((action == "UP" and not tile_is_free(field, bomb_positions, other_postions, x_agent, y_agent - 1)) or
+            (action == "DOWN" and not tile_is_free(field, bomb_positions, other_postions, x_agent, y_agent + 1)) or
+            (action == "LEFT" and  not tile_is_free(field, bomb_positions, other_postions, x_agent - 1, y_agent)) or
+            (action == "RIGHT" and not tile_is_free(field, bomb_positions, other_postions, x_agent + 1, y_agent)) or
+            (action == "BOMB" and not game_state["self"][2])):
             prediction[idx] = -torch.inf
             idx = torch.argmax(prediction).item()
             action = ACTIONS[idx]
@@ -84,6 +93,13 @@ def act(self, game_state: dict) -> str:
             break
 
     return action
+
+def tile_is_free(field, bombs, active_agents, x, y):
+        is_free = (field[x, y] == 0)
+        if is_free:
+            for (x_,y_) in bombs + active_agents:
+                is_free = is_free and (x_ != x or y_ != y)
+        return is_free
 
 def state_to_features(game_state: dict) -> np.array:
     """
@@ -356,6 +372,19 @@ def state_to_features(game_state: dict) -> np.array:
     feature_vector.append(dodge_left)
     feature_vector.append(dodge_right) #14
     feature_vector.append(safe) #15
+
+    # explosion status for each direction
+    explosion_map = game_state["explosion_map"]
+
+    explosion_up = explosion_map[x_agent, y_agent-1]
+    explosion_down = explosion_map[x_agent, y_agent+1]
+    explosion_left = explosion_map[x_agent-1, y_agent]
+    explosion_right = explosion_map[x_agent+1, y_agent]
+
+    feature_vector.append(explosion_up) #16
+    feature_vector.append(explosion_down)
+    feature_vector.append(explosion_left)
+    feature_vector.append(explosion_right) #19
      
     feature_vector = torch.tensor(feature_vector, dtype=torch.float)
     return feature_vector

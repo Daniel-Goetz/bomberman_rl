@@ -1,6 +1,7 @@
 from collections import namedtuple, deque
 
 import pickle
+import random
 from typing import List
 
 import events as e
@@ -13,13 +14,14 @@ import torch.optim as optim
 
 # This is only an example!
 Transition = namedtuple('Transition',
-                        ('state', 'action', 'next_state', 'reward'))
+                        ('state', 'action', 'next_state', 'reward','end'))
 
 # Hyper parameters -- DO modify
-TRANSITION_HISTORY_SIZE = 3  # keep only ... last transitions
+TRANSITION_HISTORY_SIZE = 10_000  # keep only ... last transitions
 RECORD_ENEMY_TRANSITIONS = 1.0  # record enemy transitions with probability ...
-LEARNING_RATE = 0.001
+LEARNING_RATE = 0.005
 DISCOUNT_FACTOR = 0.9
+BATCH_SIZE = 500
 
 # Events
 PLACEHOLDER_EVENT = "PLACEHOLDER"
@@ -42,6 +44,7 @@ WAIT_IN_EXPLOSION_AREA = "WAIT_IN_EXPLOSION_AREA"
 DIED_TO_BEGIN = "DIED_TO_BEGIN"
 REDUCE_BOMB_AWARD_WHEN_COINS_EXIST = "REDUCE_BOMB_AWARD_WHEN_COINS_EXIST"
 BOMB_REPETITION = "BOMB_REPETITION"
+WAIT_2 = "WAIT_2"
 
 
 class Trainer:
@@ -52,12 +55,13 @@ class Trainer:
         self.optimizer = optim.Adam(model.parameters(), lr=self.learning_rate)
         self.loss_function = nn.MSELoss()
 
-    def train_step(self, transition: "Transition", end_of_round):
+    def train_step(self, transition: "Transition"):
 
         state = transition.state
         action = transition.action
         next_state = transition.next_state
         reward = transition.reward
+        end_of_round = transition.end
 
         # predict Q values with current state
         prediction = self.model(state)
@@ -76,6 +80,34 @@ class Trainer:
 
         self.optimizer.step()
 
+    def train_from_buffer(self, transitions):
+
+        if len(transitions) > BATCH_SIZE:
+            sampled_transitions = random.sample(transitions, BATCH_SIZE)
+        else:
+            sampled_transitions = transitions
+
+        states, actions, next_states, rewards, ends = zip(*sampled_transitions)
+        states = torch.stack(states)
+
+        # predict Q values with current state
+        predictions = self.model(states)
+
+        targets = predictions.clone()
+        for idx, end in enumerate(ends):
+            if end:
+                Q_new = rewards[idx]
+            else:
+                Q_new = rewards[idx] + self.discount_factor * torch.max(self.model(next_states[idx]))
+
+            targets[idx][ACTIONS.index(actions[idx])] = Q_new
+
+        self.optimizer.zero_grad()
+        loss = self.loss_function(targets, predictions)
+        loss.backward()
+
+        self.optimizer.step()
+
 def setup_training(self):
     """
     Initialise self for training purpose.
@@ -87,6 +119,7 @@ def setup_training(self):
     # Example: Setup an array that will note transition tuples
     # (s, a, r, s')
     self.bombhistory = []
+    self.actionhistory = []
     self.transitions = deque(maxlen=TRANSITION_HISTORY_SIZE)
     self.trainer = Trainer(self.model, LEARNING_RATE, DISCOUNT_FACTOR)
 
@@ -129,13 +162,18 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
             events.append(BOMB_REPETITION)
     except IndexError: len(self.bombhistory) < 4
 
-    if (new_game_features[5] == 1) and (e.MOVED_UP in events) and (new_game_features[0] == 0):
+    try:
+        if(self.actionhistory[-1] == self.actionhistory[-2] == 'WAIT') and(self.actionhistory[-6] == 'BOMB'):
+            events.append(WAIT_2)
+    except IndexError: len(self.actionhistory) < 2
+
+    if (old_game_features[5] == 1) and (e.MOVED_UP in events) and (old_game_features[0] == 0) and (old_game_features[4] < 8):
         events.append(GOT_CLOSER_TO_COIN)
-    if (new_game_features[6] == 1) and (e.MOVED_DOWN in events) and (new_game_features[1] == 0):
+    if (old_game_features[6] == 1) and (e.MOVED_DOWN in events) and (old_game_features[1] == 0) and (old_game_features[4] < 8):
         events.append(GOT_CLOSER_TO_COIN)
-    if (new_game_features[7] == 1) and (e.MOVED_LEFT in events) and (new_game_features[2] == 0):
+    if (old_game_features[7] == 1) and (e.MOVED_LEFT in events) and (old_game_features[2] == 0) and (old_game_features[4] < 8):
         events.append(GOT_CLOSER_TO_COIN)
-    if (new_game_features[8] == 1) and (e.MOVED_RIGHT in events) and (new_game_features[3] == 0):
+    if (old_game_features[8] == 1) and (e.MOVED_RIGHT in events) and (old_game_features[3] == 0) and (old_game_features[4] < 8):
         events.append(GOT_CLOSER_TO_COIN)
 
     if old_game_state["self"][3] == new_game_state["self"][3]:
@@ -182,9 +220,13 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     if(e.BOMB_DROPPED in events) and (new_game_state["self"][3] in corner):
         events.append(CORNER_BOMB)
 
-    agent_position = new_game_state["self"][3]
-    x,y = agent_position
-    if(new_game_state["explosion_map"][x,y] != 0):
+    if(e.MOVED_UP in events) and (old_game_features[16] != 0):
+        events.append(RUN_INTO_ACTIVE_BOMB)
+    if(e.MOVED_DOWN in events) and (old_game_features[17] != 0):
+        events.append(RUN_INTO_ACTIVE_BOMB)
+    if(e.MOVED_LEFT in events) and (old_game_features[18] != 0):
+        events.append(RUN_INTO_ACTIVE_BOMB)
+    if(e.MOVED_RIGHT in events) and (old_game_features[19] != 0):
         events.append(RUN_INTO_ACTIVE_BOMB)
 
     # bomb dropped without any chances to escape this bomb
@@ -205,11 +247,18 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
         events.append(REDUCE_BOMB_AWARD_WHEN_COINS_EXIST)
 
     # state_to_features is defined in callbacks.py
-    transition = Transition(old_game_features, self_action, new_game_features, reward_from_events(self, events))
-    
+    # if(old_game_state["coins"]):
+    #     transition = Transition(old_game_features, self_action, new_game_features, reward_from_events_coin(self, events), False)
+    # else:
+
+    transition = Transition(old_game_features, self_action, new_game_features, reward_from_events(self, events), False)
+
+
     self.transitions.append(transition)
 
-    self.trainer.train_step(transition, end_of_round=False)
+    self.trainer.train_step(transition)
+
+    self.actionhistory.append(self_action)
 
 
 def end_of_round(self, last_game_state: dict, last_action: str, events: List[str]):
@@ -226,15 +275,59 @@ def end_of_round(self, last_game_state: dict, last_action: str, events: List[str
     :param self: The same object that is passed to all of your callbacks.
     """
     self.logger.debug(f'Encountered event(s) {", ".join(map(repr, events))} in final step')
-    transition = Transition(state_to_features(last_game_state), last_action, None, reward_from_events(self, events))
+    # if(last_game_state["coins"]):
+    #     transition = Transition(state_to_features(last_game_state), last_action, None, reward_from_events_coin(self, events), True)
+    # else:
+         
+    transition = Transition(state_to_features(last_game_state), last_action, None, reward_from_events(self, events), True)
+
 
     self.transitions.append(transition)
 
-    self.trainer.train_step(transition, end_of_round=True)
+    self.trainer.train_step(transition)
+
+    self.trainer.train_from_buffer(self.transitions)
 
     # Store the model
     with open("my-saved-model.pt", "wb") as file:
         pickle.dump(self.model, file)
+
+def reward_from_events_coin(self, events: List[str]) -> int:
+    game_rewards_coin = {
+        e.COIN_COLLECTED: 5,
+        # e.KILLED_OPPONENT: 0,
+        e.BOMB_DROPPED: -5,
+        # e.KILLED_SELF: -20,
+        # e.GOT_KILLED: 0,
+        # e.CRATE_DESTROYED: 20,
+        WAIT_2: 15,
+        GOT_CLOSER_TO_COIN: 2,
+        GOT_AWAY_FROM_COIN: -1,
+        # STAYED_PUT: -0.05,
+        # WIGGLE_WIGGLE_WIGGLE: -2,
+        # IN_DANGER: 0,
+        # OUT_OF_DANGER: 0,
+        # GOT_AWAY_FROM_BOMB: 30,
+        # GOT_CLOSER_TO_BOMB: -50,
+        # SAFE_SQUARE: 5,
+        # ESCAPE_DIRECTION: 2.5,
+        # NO_ESCAPE_DIRECTION: -5,
+        # WAIT_IN_EXPLOSION_AREA: -5,
+        # CORNER_BOMB: -10,
+        RUN_INTO_ACTIVE_BOMB: -25,
+        # BAD_BOMB: -100
+        # NO_COIN_COLLECTED: -0.2,
+        # DIED_TO_BEGIN: -15, 1
+        # REDUCE_BOMB_AWARD_WHEN_COINS_EXIST: -8
+        # BOMB_REPETITION: -20
+    }
+
+    reward_sum = 0
+    for event in events:
+        if event in game_rewards_coin:
+            reward_sum += game_rewards_coin[event]
+    self.logger.info(f"Awarded {reward_sum} for events {', '.join(events)}")
+    return reward_sum
 
 
 def reward_from_events(self, events: List[str]) -> int:
@@ -245,32 +338,33 @@ def reward_from_events(self, events: List[str]) -> int:
     certain behavior.
     """
     game_rewards = {
-        e.COIN_COLLECTED: 2,
+        e.COIN_COLLECTED: 5,
         # e.KILLED_OPPONENT: 0,
         e.BOMB_DROPPED: 5,
         # e.KILLED_SELF: -5,
         # e.GOT_KILLED: 0,
-        # e.CRATE_DESTROYED: 20,
+        # e.CRATE_DESTROYED: 1,
         GOT_CLOSER_TO_COIN: 0.5,
         # GOT_AWAY_FROM_COIN: -0.75,
         # STAYED_PUT: -0.05,
         # WIGGLE_WIGGLE_WIGGLE: -2,
         # IN_DANGER: 0,
         # OUT_OF_DANGER: 0,
-        # GOT_AWAY_FROM_BOMB: 30,
-        # GOT_CLOSER_TO_BOMB: -50,
+        # GOT_AWAY_FROM_BOMB: 1,
+        # GOT_CLOSER_TO_BOMB: -1,
         # SAFE_SQUARE: 5,
         ESCAPE_DIRECTION: 2.5,
         # NO_ESCAPE_DIRECTION: -5,
         WAIT_IN_EXPLOSION_AREA: -5,
-        CORNER_BOMB: -10,
-        # RUN_INTO_ACTIVE_BOMB: -15,
+        CORNER_BOMB: -20,
+        # RUN_INTO_ACTIVE_BOMB: -5,
         # BAD_BOMB: -100
         # NO_COIN_COLLECTED: -0.2,
         # DIED_TO_BEGIN: -15, 1
-        # REDUCE_BOMB_AWARD_WHEN_COINS_EXIST: -5
+        # REDUCE_BOMB_AWARD_WHEN_COINS_EXIST: -8
         # BOMB_REPETITION: -20
-    }
+    }    
+    
     reward_sum = 0
     for event in events:
         if event in game_rewards:
