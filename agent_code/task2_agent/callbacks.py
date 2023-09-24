@@ -244,7 +244,7 @@ def state_to_features(game_state: dict) -> np.array:
                 break
 
         # give escape directions when on bomb
-        if(x_agent == x_bomb) and (y_agent == y_bomb):
+        if(x_agent == x_nearest_bomb) and (y_agent == y_nearest_bomb):
             safe = 0
             for tile in explosion_map_up:
                 x, y = tile
@@ -283,78 +283,78 @@ def state_to_features(game_state: dict) -> np.array:
                     dodge_right = 1
 
         # check for escape directions and safe squares
-        if(x_bomb == x_agent) and (y_bomb != y_agent):
+        if(x_nearest_bomb == x_agent) and (y_nearest_bomb != y_agent):
             safe = 0
             if(field[x_agent - 1, y_agent] == 0):
                 dodge_left = 1
             if(field[x_agent + 1, y_agent] == 0):
                 dodge_right = 1
-            if(y_bomb < y_agent):
+            if(y_nearest_bomb < y_agent):
                 dodge_up = 0 # even though this could be possbile running towards the bomb is never ideal
-                if(np.abs(np.subtract(y_bomb, y_agent)) == 1):
+                if(np.abs(np.subtract(y_nearest_bomb, y_agent)) == 1):
                     if((field[x_agent, y_agent + 1] == 0) and (field[x_agent, y_agent + 2] == 0) and 
                        ((field[x_agent - 1, y_agent + 2] == 0) or (field[x_agent + 1, y_agent + 2] == 0) or 
                        (field[x_agent, y_agent + 3] == 0))):
                         dodge_up = 1
-                if(np.abs(np.subtract(y_bomb, y_agent)) == 2):
+                if(np.abs(np.subtract(y_nearest_bomb, y_agent)) == 2):
                     if((field[x_agent, y_agent + 1] == 0) and ((field[x_agent - 1, y_agent + 1] == 0) or
                         (field[x_agent + 1, y_agent + 1] == 0) or (field[x_agent, y_agent + 2] == 0))):
                         dodge_up = 1
-                if(np.abs(np.subtract(y_bomb, y_agent)) == 3):
+                if(np.abs(np.subtract(y_nearest_bomb, y_agent)) == 3):
                     if((field[x_agent - 1, y_agent] == 0) or (field[x_agent + 1, y_agent] == 0) or 
                         (field[x_agent, y_agent + 1] == 0)):
                         dodge_up = 1
-            if(y_bomb > y_agent):
+            if(y_nearest_bomb > y_agent):
                 dodge_down = 0 # even though this could be possbile running towards the bomb is never ideal
-                if(np.abs(np.subtract(y_bomb, y_agent)) == 1):
+                if(np.abs(np.subtract(y_nearest_bomb, y_agent)) == 1):
                     if((field[x_agent, y_agent - 1] == 0) and (field[x_agent, y_agent - 2] == 0) and 
                        ((field[x_agent - 1, y_agent - 2] == 0) or (field[x_agent + 1, y_agent - 2] == 0) or 
                        (field[x_agent, y_agent - 3] == 0))):
                         dodge_down = 1
-                if(np.abs(np.subtract(y_bomb, y_agent)) == 2):
+                if(np.abs(np.subtract(y_nearest_bomb, y_agent)) == 2):
                     if((field[x_agent, y_agent - 1] == 0) and ((field[x_agent - 1, y_agent - 1] == 0) or
                         (field[x_agent + 1, y_agent - 1] == 0) or (field[x_agent, y_agent - 2] == 0))):
                         dodge_down = 1
-                if(np.abs(np.subtract(y_bomb, y_agent)) == 3):
+                if(np.abs(np.subtract(y_nearest_bomb, y_agent)) == 3):
                     if((field[x_agent - 1, y_agent] == 0) or (field[x_agent + 1, y_agent] == 0) or 
                         (field[x_agent, y_agent - 1] == 0)):
                         dodge_down = 1
 
 
         
-        if(y_bomb == y_agent) and (x_bomb != x_agent):
+        if(y_nearest_bomb == y_agent) and (x_nearest_bomb != x_agent):
             safe = 0
             if(field[x_agent, y_agent - 1] == 0):
                 dodge_up = 1
             if(field[x_agent, y_agent + 1] == 0):
                 dodge_down = 1
-            if(x_bomb < x_agent):
+            if(x_nearest_bomb < x_agent):
                 dodge_left = 0 # even though this could be possbile running towards the bomb is never ideal
-                if(np.abs(np.subtract(x_bomb, x_agent)) == 1):
+                if(np.abs(np.subtract(x_nearest_bomb, x_agent)) == 1):
                     if((field[x_agent + 1, y_agent] == 0) and (field[x_agent + 2, y_agent] == 0) and 
                        ((field[x_agent + 2, y_agent - 1] == 0) or (field[x_agent + 2, y_agent + 1] == 0) or 
                        (field[x_agent + 3, y_agent] == 0))):
                         dodge_right = 1
-                if(np.abs(np.subtract(x_bomb, x_agent)) == 2):
+                if(np.abs(np.subtract(x_nearest_bomb, x_agent)) == 2):
                     if((field[x_agent + 1, y_agent] == 0) and ((field[x_agent + 1, y_agent - 1] == 0) or
                         (field[x_agent + 1, y_agent + 1] == 0) or (field[x_agent + 2, y_agent] == 0))):
                         dodge_right = 1
-                if(np.abs(np.subtract(x_bomb, x_agent)) == 3):
+                if(np.abs(np.subtract(x_nearest_bomb, x_agent)) == 3):
                     if((field[x_agent, y_agent - 1] == 0) or (field[x_agent, y_agent + 1] == 0) or 
                         (field[x_agent + 1, y_agent] == 0)):
                         dodge_right = 1
-            if(x_bomb > x_agent):
+            if(x_nearest_bomb > x_agent):
                 dodge_right = 0 # even though this could be possbile running towards the bomb is never ideal
-                if(np.abs(np.subtract(x_bomb, x_agent)) == 1):
+                if(np.abs(np.subtract(x_nearest_bomb, x_agent)) == 1):
                     if((field[x_agent - 1, y_agent] == 0) and (field[x_agent - 2, y_agent] == 0) and 
                        ((field[x_agent - 2, y_agent - 1] == 0) or (field[x_agent - 2, y_agent + 1] == 0) or 
                        (field[x_agent - 3, y_agent] == 0))):
                         dodge_left = 1
-                if(np.abs(np.subtract(x_bomb, x_agent)) == 2):
+                if(np.abs(np.subtract(x_nearest_bomb, x_agent)) == 2):
                     if((field[x_agent - 1, y_agent] == 0) and ((field[x_agent - 1, y_agent - 1] == 0) or
                         (field[x_agent - 1, y_agent + 1] == 0) or (field[x_agent - 2, y_agent] == 0))):
                         dodge_left = 1
-                if(np.abs(np.subtract(x_bomb, x_agent)) == 3):
+                if(np.abs(np.subtract(x_nearest_bomb, x_agent)) == 3):
                     if((field[x_agent, y_agent - 1] == 0) or (field[x_agent, y_agent + 1] == 0) or 
                         (field[x_agent - 1, y_agent] == 0)):
                         dodge_left = 1
