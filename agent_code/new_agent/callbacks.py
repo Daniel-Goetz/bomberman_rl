@@ -16,12 +16,12 @@ class Network(nn.Module):
     def __init__(self, input_size, hidden1_size, hidden2_size, output_size) -> None:
         super().__init__()
         self.layer1 = nn.Linear(input_size, hidden1_size)
-        self.layer2 = nn.Linear(hidden1_size, hidden2_size)
+        # self.layer2 = nn.Linear(hidden1_size, hidden2_size)
         self.layer3 = nn.Linear(hidden2_size, output_size)
 
     def forward(self, x):
         x = relu(self.layer1(x))
-        x = relu(self.layer2(x))
+        # x = relu(self.layer2(x))
         x = self.layer3(x)
 
         return x
@@ -44,7 +44,7 @@ def setup(self):
     if self.train or not os.path.isfile("my-saved-model.pt"):
         self.logger.info("Setting up model from scratch.")
         
-        self.model = Network(225, 256, 128, 6)
+        self.model = Network(225, 128, 128, 6)
         
     else:
         self.logger.info("Loading model from saved state.")

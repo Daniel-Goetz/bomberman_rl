@@ -20,7 +20,7 @@ Transition = namedtuple('Transition',
 TRANSITION_HISTORY_SIZE = 10_000  # keep only ... last transitions
 BATCH_SIZE = 500
 # RECORD_ENEMY_TRANSITIONS = 1.0  # record enemy transitions with probability ...
-LEARNING_RATE = 0.001
+LEARNING_RATE = 0.01
 DISCOUNT_FACTOR = 0.9
 
 class Trainer:
@@ -118,6 +118,48 @@ def game_events_occurred(self, old_game_state: dict, self_action: str, new_game_
     """
     self.logger.debug(f'Encountered game event(s) {", ".join(map(repr, events))} in step {new_game_state["step"]}')
 
+    # old_others = old_game_state["others"]
+    # new_others = new_game_state["others"]
+    # other_actions = []
+    # if len(old_others) == len(new_others):
+    #     for old_enemy, new_enemy in zip(old_others, new_others):
+    #         _, _, old_bomb, (old_x, old_y) = old_enemy
+    #         _, _, new_bomb, (new_x, new_y) = new_enemy
+    #         if old_bomb and not new_bomb:
+    #             other_actions.append("BOMB")
+    #         elif old_x < new_x:
+    #             other_actions.append("RIGHT")
+    #         elif old_x > new_x:
+    #             other_actions.append("LEFT")
+    #         elif old_y < new_y:
+    #             other_actions.append("DOWN")
+    #         elif old_y > new_y:
+    #             other_actions.append("UP")
+    #         else:
+    #             other_actions.append("WAIT")
+
+    #     old_self = old_game_state["self"]
+    #     new_self = new_game_state["self"]
+    #     # add self to create list of all players
+    #     old_others.append(old_self)
+    #     new_others.append(new_self)
+    #     other_actions.append(self_action)
+    #     # choose random player
+    #     rnd_idx = np.random.randint(len(old_others))
+    #     old_agent = old_others[rnd_idx]
+    #     new_agent = new_others[rnd_idx]
+    #     agent_action = other_actions[rnd_idx]
+    #     # remove chosen player to create other list
+    #     old_others.remove(old_agent)
+    #     new_others.remove(new_agent)
+    #     other_actions.remove(agent_action)
+    #     # save changes in the game state
+    #     old_game_state["self"] = old_agent
+    #     new_game_state["self"] = new_agent
+    #     old_game_state["others"] = old_others
+    #     new_game_state["others"] = new_others
+    #     self_action = agent_action
+
     # state_to_features is defined in callbacks.py
     transition = Transition(state_to_features(old_game_state), self_action, state_to_features(new_game_state), reward_from_events(self, events), False)
     self.transitions.append(transition)
@@ -172,7 +214,7 @@ def reward_from_events(self, events: List[str]) -> int:
         e.COIN_COLLECTED: 5,
 
         e.KILLED_OPPONENT: 5,
-        e.KILLED_SELF: -3,
+        e.KILLED_SELF: -5,
 
         e.GOT_KILLED: -1,
         e.OPPONENT_ELIMINATED: 0,
